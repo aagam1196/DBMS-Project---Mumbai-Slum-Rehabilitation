@@ -1,0 +1,8 @@
+# Railway auto-detects this — no changes needed usually
+# Set these environment variables in Railway dashboard:
+#
+# DATABASE_URL  → auto-set by Railway PostgreSQL plugin
+# PORT          → auto-set by Railway
+#
+# Build command (backend): pip install -r requirements.txt
+# Start command (backend): uvicorn main:app --host 0.0.0.0 --port $PORT
