@@ -10,14 +10,22 @@ export default function Violations() {
   const [loading, setLoading]   = useState(true)
   const [statusF, setStatusF]   = useState('')
   const [typeF, setTypeF]       = useState('')
-  const [editing, setEditing]   = useState(null)   // { id, status, description }
+  const [editing, setEditing]   = useState(null)
   const [saving, setSaving]     = useState(false)
+  const [page, setPage]         = useState(0)
+  const PAGE_SIZE = 50
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const rows = await getViolations({ status_filter: statusF || undefined, type_filter: typeF || undefined, limit: 100 })
+      const rows = await getViolations({
+        status_filter: statusF || undefined,
+        type_filter: typeF || undefined,
+        limit: 2000,
+        offset: 0,
+      })
       setData(rows)
+      setPage(0)
     } catch { toast.error('Failed to load violations') }
     finally { setLoading(false) }
   }, [statusF, typeF])
@@ -35,6 +43,9 @@ export default function Violations() {
     finally { setSaving(false) }
   }
 
+  const totalPages = Math.ceil(data.length / PAGE_SIZE)
+  const pageData   = data.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }`}</style>
@@ -43,7 +54,7 @@ export default function Violations() {
         <div>
           <h1 style={{ fontFamily: 'Space Mono, monospace', fontSize: 22, color: '#E2E8F0', margin: 0 }}>VIOLATION LOG</h1>
           <p style={{ color: '#64748B', fontSize: 13, margin: '6px 0 0', fontFamily: 'JetBrains Mono' }}>
-            {data.length} record{data.length !== 1 ? 's' : ''} found
+            {data.length} total records · showing {pageData.length} on this page
           </p>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -114,66 +125,98 @@ export default function Violations() {
 
       <div className="card-glow" style={{ background: '#141D2E', border: '1px solid #1E2D45', borderRadius: 12, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 60, textAlign: 'center', color: '#64748B', fontFamily: 'Space Mono', fontSize: 12 }}>
-            LOADING...
-          </div>
+          <div style={{ padding: 60, textAlign: 'center', color: '#64748B', fontFamily: 'Space Mono', fontSize: 12 }}>LOADING...</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Type</th>
-                  <th>Beneficiary</th>
-                  <th>Aadhar</th>
-                  <th>Flat</th>
-                  <th>Project</th>
-                  <th>Detected</th>
-                  <th>Status</th>
-                  <th>Reported By</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map(v => (
-                  <tr key={v.violation_id}>
-                    <td style={{ color: '#64748B', fontFamily: 'JetBrains Mono', fontSize: 11 }}>#{v.violation_id}</td>
-                    <td>
-                      <span className={`badge badge-${v.violation_type === 'illegal_sale' ? 'cancelled' : v.violation_type === 'lock_in_breach' ? 'under_investigation' : 'open'}`}>
-                        {v.violation_type?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{v.beneficiary_name}</td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#64748B' }}>{v.aadhar_number}</td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>{v.flat_number}</td>
-                    <td style={{ fontSize: 12 }}>{v.project_name}</td>
-                    <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#64748B' }}>
-                      {new Date(v.detected_date).toLocaleDateString('en-IN')}
-                    </td>
-                    <td><span className={`badge badge-${v.status}`}>{v.status?.replace(/_/g, ' ')}</span></td>
-                    <td style={{ fontSize: 11, color: '#64748B' }}>{v.reported_by || '—'}</td>
-                    <td>
-                      <button
-                        onClick={() => setEditing({ id: v.violation_id, status: v.status, description: v.description || '' })}
-                        style={{
-                          background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)',
-                          color: '#F97316', borderRadius: 5, padding: '4px 10px',
-                          cursor: 'pointer', fontSize: 11, fontFamily: 'Space Mono',
-                        }}
-                      >EDIT</button>
-                    </td>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Type</th><th>Beneficiary</th><th>Aadhar</th>
+                    <th>Flat</th><th>Project</th><th>Detected</th><th>Status</th>
+                    <th>Reported By</th><th>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.length === 0 && (
-              <div style={{ padding: 40, textAlign: 'center', color: '#64748B', fontFamily: 'Space Mono', fontSize: 12 }}>
-                NO VIOLATIONS FOUND
+                </thead>
+                <tbody>
+                  {pageData.map(v => (
+                    <tr key={v.violation_id}>
+                      <td style={{ color: '#64748B', fontFamily: 'JetBrains Mono', fontSize: 11 }}>#{v.violation_id}</td>
+                      <td>
+                        <span className={`badge badge-${v.violation_type === 'illegal_sale' ? 'cancelled' : v.violation_type === 'lock_in_breach' ? 'under_investigation' : 'open'}`}>
+                          {v.violation_type?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{v.beneficiary_name}</td>
+                      <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#64748B' }}>{v.aadhar_number}</td>
+                      <td style={{ fontFamily: 'JetBrains Mono', fontSize: 12 }}>{v.flat_number}</td>
+                      <td style={{ fontSize: 12 }}>{v.project_name}</td>
+                      <td style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#64748B' }}>
+                        {new Date(v.detected_date).toLocaleDateString('en-IN')}
+                      </td>
+                      <td><span className={`badge badge-${v.status}`}>{v.status?.replace(/_/g, ' ')}</span></td>
+                      <td style={{ fontSize: 11, color: '#64748B' }}>{v.reported_by || '—'}</td>
+                      <td>
+                        <button
+                          onClick={() => setEditing({ id: v.violation_id, status: v.status, description: v.description || '' })}
+                          style={{
+                            background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)',
+                            color: '#F97316', borderRadius: 5, padding: '4px 10px',
+                            cursor: 'pointer', fontSize: 11, fontFamily: 'Space Mono',
+                          }}
+                        >EDIT</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.length === 0 && (
+                <div style={{ padding: 40, textAlign: 'center', color: '#64748B', fontFamily: 'Space Mono', fontSize: 12 }}>NO VIOLATIONS FOUND</div>
+              )}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 20px', borderTop: '1px solid #1E2D45',
+              }}>
+                <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'JetBrains Mono' }}>
+                  Page {page + 1} of {totalPages} · {data.length} total records
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setPage(0)} disabled={page === 0} style={pageBtnStyle(page === 0)}>«</button>
+                  <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={pageBtnStyle(page === 0)}>‹ Prev</button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const p = Math.max(0, Math.min(page - 2, totalPages - 5)) + i
+                    return (
+                      <button key={p} onClick={() => setPage(p)} style={{
+                        ...pageBtnStyle(false),
+                        background: p === page ? 'rgba(249,115,22,0.2)' : 'transparent',
+                        color: p === page ? '#F97316' : '#94A3B8',
+                        borderColor: p === page ? 'rgba(249,115,22,0.4)' : '#1E2D45',
+                      }}>{p + 1}</button>
+                    )
+                  })}
+                  <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1} style={pageBtnStyle(page >= totalPages - 1)}>Next ›</button>
+                  <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} style={pageBtnStyle(page >= totalPages - 1)}>»</button>
+                </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
   )
 }
+
+const pageBtnStyle = (disabled) => ({
+  background: 'transparent',
+  border: '1px solid #1E2D45',
+  color: disabled ? '#334155' : '#94A3B8',
+  borderRadius: 5,
+  padding: '5px 10px',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  fontFamily: 'Space Mono, monospace',
+  fontSize: 11,
+  transition: 'all 0.2s',
+})
